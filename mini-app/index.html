@@ -53,8 +53,12 @@
 
         // Добавлено: Инициализация данных из URL
         function init() {
+            if (!appData.sections || !appData.objects || !appData.workTypes) {
+                Telegram.WebApp.showAlert('Ошибка загрузки данных');
+                console.error('Неполные данные:', appData);
+            }
             const urlParams = new URLSearchParams(window.location.search);
-            const encodedData = urlParams.get('data');
+            const encodedData = decodeURIComponent(urlParams.get('data'));
             if (encodedData) {
                 try {
                     appData = JSON.parse(decodeURIComponent(encodedData));
