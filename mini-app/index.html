@@ -2,30 +2,102 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>UDS Work Mini App</title>
+    <title>Добавить работу</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        body { padding: 20px; font-family: Arial; }
-        button { padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+        .step { display: none; padding: 15px; }
+        .active { display: block; }
+        select, input { width: 100%; padding: 8px; margin: 10px 0; }
+        button { background: #007bff; color: white; border: none; padding: 10px; }
     </style>
 </head>
 <body>
-    <h1>Добавить работу</h1>
-    <input type="text" id="workName" placeholder="Название работы">
-    <input type="number" id="volume" placeholder="Объем">
-    <button onclick="submitWork()">Отправить</button>
+    <!-- Шаг 1: Выбор участка -->
+    <div id="step1" class="step active">
+        <h3>🏗 Выберите участок:</h3>
+        <select id="section"></select>
+        <button onclick="showStep(2)">Далее</button>
+    </div>
+
+    <!-- Шаг 2: Выбор объекта -->
+    <div id="step2" class="step">
+        <h3>📋 Выберите объект:</h3>
+        <select id="object"></select>
+        <button onclick="showStep(1)">Назад</button>
+        <button onclick="showStep(3)">Далее</button>
+    </div>
+
+    <!-- Шаг 3: Выбор вида работ -->
+    <div id="step3" class="step">
+        <h3>🔧 Выберите вид работ:</h3>
+        <select id="workType"></select>
+        <button onclick="showStep(2)">Назад</button>
+        <button onclick="showStep(4)">Далее</button>
+    </div>
+
+    <!-- Шаг 4: Ввод объема -->
+    <div id="step4" class="step">
+        <h3>📊 Введите объем:</h3>
+        <input type="number" id="volume" step="0.01">
+        <button onclick="showStep(3)">Назад</button>
+        <button onclick="submitWork()">Готово</button>
+    </div>
 
     <script>
-        function submitWork() {
-            const work = {
-                name: document.getElementById('workName').value,
-                volume: document.getElementById('volume').value
-            };
+        let workData = {};
+        
+        // Инициализация: Загрузка участков
+        async function loadSections() {
+            const response = await fetch('/api/sections');
+            const sections = await response.json();
+            const select = document.getElementById('section');
+            sections.forEach(s => {
+                const option = document.createElement('option');
+                option.value = s;
+                option.text = s;
+                select.appendChild(option);
+            });
+        }
+
+        // Динамическая загрузка объектов/видов работ
+        async function loadData(step, section) {
+            const endpoint = step === 2 ? `/api/objects?section=${section}` 
+                          : `/api/work-types?section=${section}&object=${workData.object}`;
             
-            // Отправляем данные в бот
-            Telegram.WebApp.sendData(JSON.stringify(work));
+            const response = await fetch(endpoint);
+            return await response.json();
+        }
+
+        // Навигация
+        async function showStep(step) {
+            // Сохранение данных
+            if (step === 2) workData.section = document.getElementById('section').value;
+            if (step === 3) workData.object = document.getElementById('object').value;
+            
+            // Динамическая загрузка
+            if (step === 2) {
+                const objects = await loadData(2, workData.section);
+                updateSelect('object', objects);
+            }
+            if (step === 3) {
+                const workTypes = await loadData(3, workData.section);
+                updateSelect('workType', workTypes);
+            }
+
+            // Переключение шагов
+            document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
+            document.getElementById(`step${step}`).classList.add('active');
+        }
+
+        // Отправка данных
+        function submitWork() {
+            workData.volume = parseFloat(document.getElementById('volume').value);
+            Telegram.WebApp.sendData(JSON.stringify(workData));
             Telegram.WebApp.close();
         }
+
+        // Инициализация
+        loadSections();
     </script>
 </body>
 </html>
