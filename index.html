@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>UDS Work Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body { padding: 20px; font-family: Arial; }
+        button { padding: 10px; background: #007bff; color: white; border: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Добавить работу</h1>
+    <input type="text" id="workName" placeholder="Название работы">
+    <input type="number" id="volume" placeholder="Объем">
+    <button onclick="submitWork()">Отправить</button>
+
+    <script>
+        function submitWork() {
+            const work = {
+                name: document.getElementById('workName').value,
+                volume: document.getElementById('volume').value
+            };
+            
+            // Отправляем данные в бот
+            Telegram.WebApp.sendData(JSON.stringify(work));
+            Telegram.WebApp.close();
+        }
+    </script>
+</body>
+</html>
