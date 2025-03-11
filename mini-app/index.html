@@ -45,59 +45,71 @@
 
     <script>
         let workData = {};
-        
-        // Инициализация: Загрузка участков
-        async function loadSections() {
-            const response = await fetch('/api/sections');
-            const sections = await response.json();
-            const select = document.getElementById('section');
-            sections.forEach(s => {
-                const option = document.createElement('option');
-                option.value = s;
-                option.text = s;
-                select.appendChild(option);
-            });
+        let appData = {}; // Добавлено: Глобальный объект для данных
+
+        // Удалено: Асинхронная загрузка через API
+        // Было:
+        // async function loadSections() { ... }
+
+        // Добавлено: Инициализация данных из URL
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const encodedData = urlParams.get('data');
+            if (encodedData) {
+                try {
+                    appData = JSON.parse(decodeURIComponent(encodedData));
+                    updateSelect('section', appData.sections || []);
+                } catch (error) {
+                    console.error('Ошибка парсинга данных:', error);
+                }
+            }
         }
 
-        // Динамическая загрузка объектов/видов работ
-        async function loadData(step, section) {
-            const endpoint = step === 2 ? `/api/objects?section=${section}` 
-                          : `/api/work-types?section=${section}&object=${workData.object}`;
-            
-            const response = await fetch(endpoint);
-            return await response.json();
+        // Изменено: Загрузка данных из локального объекта
+        function loadData(step) {
+            const section = workData.section;
+            const object = workData.object;
+
+            switch (step) {
+                case 2:
+                    return appData.objects?.[section] || [];
+                case 3:
+                    return appData.workTypes?.[section]?.[object] || [];
+                default:
+                    return [];
+            }
         }
 
-        // Навигация
-        async function showStep(step) {
-            // Сохранение данных
-            if (step === 2) workData.section = document.getElementById('section').value;
-            if (step === 3) workData.object = document.getElementById('object').value;
-            
-            // Динамическая загрузка
+        // Изменено: Убрана асинхронность
+        function showStep(step) {
             if (step === 2) {
-                const objects = await loadData(2, workData.section);
-                updateSelect('object', objects);
+                workData.section = document.getElementById('section').value;
+                updateSelect('object', loadData(2));
             }
             if (step === 3) {
-                const workTypes = await loadData(3, workData.section);
-                updateSelect('workType', workTypes);
+                workData.object = document.getElementById('object').value;
+                updateSelect('workType', loadData(3));
             }
 
-            // Переключение шагов
             document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
             document.getElementById(`step${step}`).classList.add('active');
         }
 
-        // Отправка данных
-        function submitWork() {
-            workData.volume = parseFloat(document.getElementById('volume').value);
-            Telegram.WebApp.sendData(JSON.stringify(workData));
-            Telegram.WebApp.close();
+        // Добавлено: Утилита для обновления списков
+        function updateSelect(elementId, items) {
+            const select = document.getElementById(elementId);
+            select.innerHTML = '';
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item;
+                option.text = item;
+                select.appendChild(option);
+            });
         }
 
-        // Инициализация
-        loadSections();
+        // Удалено: Вызов loadSections()
+        // Добавлено: Инициализация при загрузке страницы
+        window.addEventListener('DOMContentLoaded', init); // Исправлено: init вместо loadSections
     </script>
 </body>
 </html>
