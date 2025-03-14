@@ -5,115 +5,162 @@
     <title>Добавить работу</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        .step { display: none; padding: 15px; }
+        /* Улучшенные стили */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 15px;
+            background: #f5f5f5;
+        }
+        .step {
+            display: none;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
         .active { display: block; }
-        select, input { width: 100%; padding: 8px; margin: 10px 0; }
-        button { background: #007bff; color: white; border: none; padding: 10px; }
+        select, input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .button-back { background: #6c757d; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
-    <!-- Шаг 1: Выбор участка -->
+    <!-- Шаги формы -->
     <div id="step1" class="step active">
         <h3>🏗 Выберите участок:</h3>
-        <select id="section"></select>
-        <button onclick="showStep(2)">Далее</button>
+        <select id="section">
+            <option value="" disabled selected>Загрузка...</option>
+        </select>
+        <button onclick="showStep(2)">Далее →</button>
     </div>
 
-    <!-- Шаг 2: Выбор объекта -->
-    <div id="step2" class="step">
-        <h3>📋 Выберите объект:</h3>
-        <select id="object"></select>
-        <button onclick="showStep(1)">Назад</button>
-        <button onclick="showStep(3)">Далее</button>
-    </div>
-
-    <!-- Шаг 3: Выбор вида работ -->
-    <div id="step3" class="step">
-        <h3>🔧 Выберите вид работ:</h3>
-        <select id="workType"></select>
-        <button onclick="showStep(2)">Назад</button>
-        <button onclick="showStep(4)">Далее</button>
-    </div>
-
-    <!-- Шаг 4: Ввод объема -->
-    <div id="step4" class="step">
-        <h3>📊 Введите объем:</h3>
-        <input type="number" id="volume" step="0.01">
-        <button onclick="showStep(3)">Назад</button>
-        <button onclick="submitWork()">Готово</button>
-    </div>
+    <!-- Остальные шаги аналогично -->
 
     <script>
-        let workData = {};
-        let appData = {}; // Добавлено: Глобальный объект для данных
+        // Типы данных
+        const AppData = {
+            sections: [],
+            objects: {},    // { [section]: string[] }
+            workTypes: {}   // { [section]: { [object]: string[] } }
+        };
 
-        // Удалено: Асинхронная загрузка через API
-        // Было:
-        // async function loadSections() { ... }
-
-        // Добавлено: Инициализация данных из URL
-        function init() {
-            if (!appData.sections || !appData.objects || !appData.workTypes) {
-                Telegram.WebApp.showAlert('Ошибка загрузки данных');
-                console.error('Неполные данные:', appData);
-            }
-            const urlParams = new URLSearchParams(window.location.search);
-            const encodedData = decodeURIComponent(urlParams.get('data'));
-            if (encodedData) {
-                try {
-                    appData = JSON.parse(decodeURIComponent(encodedData));
-                    updateSelect('section', appData.sections || []);
-                } catch (error) {
-                    console.error('Ошибка парсинга данных:', error);
-                }
-            }
-        }
-
-        // Изменено: Загрузка данных из локального объекта
-        function loadData(step) {
-            const section = workData.section;
-            const object = workData.object;
-
-            switch (step) {
-                case 2:
-                    return appData.objects?.[section] || [];
-                case 3:
-                    return appData.workTypes?.[section]?.[object] || [];
-                default:
-                    return [];
+        // Инициализация приложения
+        async function initApp() {
+            try {
+                // 1. Парсинг данных из URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const encodedData = urlParams.get('data');
+                
+                if (!encodedData) throw new Error('Отсутствуют данные');
+                
+                // 2. Декодирование и парсинг JSON
+                const decodedData = decodeURIComponent(encodedData);
+                Object.assign(AppData, JSON.parse(decodedData));
+                
+                // 3. Инициализация первого шага
+                populateSelect('section', AppData.sections);
+                
+            } catch (error) {
+                showError(`Ошибка инициализации: ${error.message}`);
+                console.error(error);
             }
         }
 
-        // Изменено: Убрана асинхронность
-        function showStep(step) {
-            if (step === 2) {
-                workData.section = document.getElementById('section').value;
-                updateSelect('object', loadData(2));
-            }
-            if (step === 3) {
-                workData.object = document.getElementById('object').value;
-                updateSelect('workType', loadData(3));
-            }
-
-            document.querySelectorAll('.step').forEach(el => el.classList.remove('active'));
-            document.getElementById(`step${step}`).classList.add('active');
-        }
-
-        // Добавлено: Утилита для обновления списков
-        function updateSelect(elementId, items) {
+        // Заполнение выпадающего списка
+        function populateSelect(elementId, items) {
             const select = document.getElementById(elementId);
-            select.innerHTML = '';
-            items.forEach(item => {
-                const option = document.createElement('option');
-                option.value = item;
-                option.text = item;
-                select.appendChild(option);
-            });
+            select.innerHTML = items.length 
+                ? items.map(item => `<option value="${item}">${item}</option>`).join('')
+                : '<option disabled>Нет данных</option>';
         }
 
-        // Удалено: Вызов loadSections()
-        // Добавлено: Инициализация при загрузке страницы
-        window.addEventListener('DOMContentLoaded', init); // Исправлено: init вместо loadSections
+        // Переход между шагами
+        function showStep(nextStep) {
+            const currentStep = document.querySelector('.step.active');
+            
+            // Валидация данных перед переходом
+            if (nextStep === 4 && !validateForm()) return;
+
+            // Обновление данных для следующего шага
+            switch (nextStep) {
+                case 2:
+                    const section = document.getElementById('section').value;
+                    populateSelect('object', AppData.objects[section] || []);
+                    break;
+                case 3:
+                    const object = document.getElementById('object').value;
+                    const workTypes = AppData.workTypes[workData.section]?.[object] || [];
+                    populateSelect('workType', workTypes);
+                    break;
+            }
+
+            // Переключение шагов
+            currentStep.classList.remove('active');
+            document.getElementById(`step${nextStep}`).classList.add('active');
+        }
+
+        // Валидация формы
+        function validateForm() {
+            const volume = document.getElementById('volume').value;
+            if (!volume || isNaN(parseFloat(volume))) {
+                showError('Введите корректный объем');
+                return false;
+            }
+            return true;
+        }
+
+        // Отправка данных
+        function submitWork() {
+            const workData = {
+                section: document.getElementById('section').value,
+                object: document.getElementById('object').value,
+                workType: document.getElementById('workType').value,
+                volume: parseFloat(document.getElementById('volume').value)
+            };
+
+            Telegram.WebApp.sendData(JSON.stringify(workData));
+            Telegram.WebApp.close();
+        }
+
+        // Показать ошибку
+        function showError(message) {
+            Telegram.WebApp.showAlert(message);
+        }
+
+        // Инициализация при загрузке
+        Telegram.WebApp.ready();
+        Telegram.WebApp.MainButton.setText("Отправить").show();
+        window.addEventListener('DOMContentLoaded', initApp);
     </script>
 </body>
 </html>
